@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UrbanGo - Smart Ride Sharing</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --background: #ffffff;
+            --surface: #f8fafc;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --primary: #60a5fa;
+            --primary-dark: #3b82f6;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .theme-toggle, .lang-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .theme-toggle:hover, .lang-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--text-muted);
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .feature-card {
+            background: var(--background);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-info {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        [data-theme="dark"] .pricing-info {
+            background: linear-gradient(135deg, #1e3a8a, #1e40af);
+        }
+
+        .peak-badge {
+            background: var(--warning);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .location-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--background);
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            border: 1px solid var(--border);
+        }
+
+        .location-pin {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .pickup-pin { background: var(--secondary); }
+        .dropoff-pin { background: var(--danger); }
+
+        .ride-card {
+            background: var(--background);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat-card {
+            background: var(--background);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .vehicle-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .vehicle-option {
+            padding: 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .vehicle-option.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .price-breakdown {
+            background: var(--background);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+        }
+
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.5rem 0;
+        }
+
+        .total-price {
+            border-top: 2px solid var(--border);
+            padding-top: 0.5rem;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+
+        .city-marker {
+            background: var(--primary);
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <header class="header">
+        <div class="header-top">
+            <div class="logo">
+                🚗 UrbanGo
+            </div>
+            <div class="controls">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span class="theme-icon">🌙</span>
+                    <span data-lang="en">Dark Mode</span>
+                    <span data-lang="hi" style="display: none;">डार्क मोड</span>
+                </button>
+                <button class="lang-toggle" onclick="toggleLanguage()">
+                    <span class="lang-icon">🌐</span>
+                    <span data-lang="en">English</span>
+                    <span data-lang="hi" style="display: none">हिंदी</span>
+                </button>
+            </div>
+        </div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🚗</div>
+                <div data-lang="en">Instant Booking</div>
+                <div data-lang="hi" style="display: none">तुरंत बुकिंग</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <div data-lang="en">Best Prices</div>
+                <div data-lang="hi" style="display: none">सर्वोत्तम कीमतें</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <div data-lang="en">Safe Rides</div>
+                <div data-lang="hi" style="display: none">सुरक्षित सवारी</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⭐</div>
+                <div data-lang="en">Rated Drivers</div>
+                <div data-lang="hi" style="display: none">रेटेड ड्राइवर</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <section class="card">
+            <h2 data-lang="en">📍 Plan Your Ride</h2>
+            <h2 data-lang="hi" style="display: none">📍 अपनी सवारी योजना बनाएं</h2>
+            
+            <div class="map-container" style="position: relative;">
+                <div id="map"></div>
+                <div class="map-overlay" id="mapOverlay">
+                    <div style="text-align: center;">
+                        <div class="loading-spinner"></div>
+                        <p style="margin-top: 1rem;" data-lang="en">Loading interactive map...</p>
+                        <p style="margin-top: 1rem;" data-lang="hi" style="display: none">इंटरएक्टिव मैप लोड हो रहा है...</p>
+                        <button class="btn" onclick="loadMap()" style="margin-top: 1rem;">
+                            <span data-lang="en">Load Map</span>
+                            <span data-lang="hi" style="display: none">मैप लोड करें</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="location-display">
+                <div class="location-pin pickup-pin"></div>
+                <div>
+                    <strong data-lang="en">Pickup:</strong>
+                    <strong data-lang="hi" style="display: none">पिकअप:</strong>
+                    <span id="fromLocation">–</span>
+                </div>
+            </div>
+
+            <div class="location-display">
+                <div class="location-pin dropoff-pin"></div>
+                <div>
+                    <strong data-lang="en">Dropoff:</strong>
+                    <strong data-lang="hi" style="display: none">ड्रॉपऑफ:</strong>
+                    <span id="toLocation">–</span>
+                </div>
+            </div>
+
+            <div class="vehicle-options">
+                <div class="vehicle-option selected" data-type="economy" onclick="selectVehicle('economy')">
+                    <div>🚗</div>
+                    <div data-lang="en">Economy</div>
+                    <div data-lang="hi" style="display: none">इकोनॉमी</div>
+                    <div>₹30 + ₹12/km</div>
+                </div>
+                <div class="vehicle-option" data-type="premium" onclick="selectVehicle('premium')">
+                    <div>⭐</div>
+                    <div data-lang="en">Premium</div>
+                    <div data-lang="hi" style="display: none">प्रीमियम</div>
+                    <div>₹50 + ₹18/km</div>
+                </div>
+                <div class="vehicle-option" data-type="suv" onclick="selectVehicle('suv')">
+                    <div>🚙</div>
+                    <div data-lang="en">SUV</div>
+                    <div data-lang="hi" style="display: none">एसयूवी</div>
+                    <div>₹70 + ₹22/km</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn" id="btnShow" disabled onclick="calculateRide()">
+                    <span data-lang="en">Calculate Fare</span>
+                    <span data-lang="hi" style="display: none">किराया गणना करें</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resetRoute()">
+                    <span data-lang="en">Reset</span>
+                    <span data-lang="hi" style="display: none">रीसेट</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2 data-lang="en">💰 Ride Details</h2>
+            <h2 data-lang="hi" style="display: none">💰 सवारी विवरण</h2>
+            
+            <div id="peakIndicator" style="display: none;">
+                <div class="peak-badge">
+                    ⏰ <span data-lang="en">Peak Hours</span>
+                    <span data-lang="hi" style="display: none">पीक आवर्स</span>
+                </div>
+            </div>
+
+            <div id="rideInfo">
+                <p data-lang="en">Select locations to see fare details</p>
+                <p data-lang="hi" style="display: none">किराया विवरण देखने के लिए स्थान चुनें</p>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRides">0</div>
+                    <div data-lang="en">Total Rides</div>
+                    <div data-lang="hi" style="display: none">कुल सवारियां</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDistance">0</div>
+                    <div data-lang="en">Km Traveled</div>
+                    <div data-lang="hi" style="display: none">किमी यात्रा</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSaved">₹0</div>
+                    <div data-lang="en">Total Saved</div>
+                    <div data-lang="hi" style="display: none">कुल बचत</div>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 1rem;" data-lang="en">📊 Ride History</h3>
+            <h3 style="margin-top: 1rem; display: none;" data-lang="hi">📊 सवारी इतिहास</h3>
+            
+            <div id="rideHistory">
+                <p style="color: var(--text-muted);" data-lang="en">No rides yet. Book your first ride!</p>
+                <p style="color: var(--text-muted); display: none;" data-lang="hi">अभी तक कोई सवारी नहीं। अपनी पहली सवारी बुक करें!</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+const indianCities = [
+    { lat: 28.6139, lng: 77.2090, name: "New Delhi" },
+    { lat: 19.0760, lng: 72.8777, name: "Mumbai" },
+    { lat: 13.0827, lng: 80.2707, name: "Chennai" },
+    { lat: 12.9716, lng: 77.5946, name: "Bengaluru" },
+    { lat: 22.5726, lng: 88.3639, name: "Kolkata" },
+    { lat: 17.3850, lng: 78.4867, name: "Hyderabad" },
+    { lat: 26.9124, lng: 75.7873, name: "Jaipur" },
+    { lat: 23.0225, lng: 72.5714, name: "Ahmedabad" },
+    { lat: 18.5204, lng: 73.8567, name: "Pune" },
+    { lat: 31.3260, lng: 75.5762, name: "Jalandhar" },
+    { lat: 31.1048, lng: 77.1734, name: "Shimla" },
+    { lat: 31.6330, lng: 74.8723, name: "Amritsar" },
+    { lat: 31.3419, lng: 76.7129, name: "Bilaspur" },
+    { lat: 31.5322, lng: 76.7158, name: "Hamirpur" }
+];
+        // Configuration
+        const CONFIG = {
+            vehicles: {
+                economy: { base: 30, perKm: 12, name: { en: 'Economy', hi: 'इकोनॉमी' } },
+                premium: { base: 50, perKm: 18, name: { en: 'Premium', hi: 'प्रीमियम' } },
+                suv: { base: 70, perKm: 22, name: { en: 'SUV', hi: 'एसयूवी' } }
+            },
+            peakHours: {
+                multiplier: 1.25,
+                times: [[7, 10], [17, 20]] // 7-10 AM, 5-8 PM
+            }
+        };
+
+        // App State
+        let map = null;
+        let startMarker = null, endMarker = null, routeLine = null;
+        let startLocation = null, endLocation = null;
+        let startLocationName = "–";
+        let endLocationName = "–";
+        let selectedVehicle = 'economy';
+        let currentLanguage = 'en';
+        let currentTheme = 'light';
+        let rideHistory = [];
+        let userStats = { totalRides: 0, totalDistance: 0, totalSaved: 0 };
+
+        // Initialize App
+        function initApp() {
+            loadUserData();
+            updateStatsDisplay();
+            updateLanguageDisplay();
+            updateThemeDisplay();
+            checkPeakHours();
+        }
+
+        // Data Persistence
+        function loadUserData() {
+            const savedHistory = localStorage.getItem('urbanGo_rideHistory');
+            const savedStats = localStorage.getItem('urbanGo_userStats');
+            const savedTheme = localStorage.getItem('urbanGo_theme');
+            const savedLang = localStorage.getItem('urbanGo_language');
+
+            if (savedHistory) rideHistory = JSON.parse(savedHistory);
+            if (savedStats) userStats = JSON.parse(savedStats);
+            if (savedTheme) setTheme(savedTheme);
+            if (savedLang) setLanguage(savedLang);
+        }
+
+        function saveUserData() {
+            localStorage.setItem('urbanGo_rideHistory', JSON.stringify(rideHistory));
+            localStorage.setItem('urbanGo_userStats', JSON.stringify(userStats));
+            localStorage.setItem('urbanGo_theme', currentTheme);
+            localStorage.setItem('urbanGo_language', currentLanguage);
+        }
+
+        // Theme Management
+        function toggleTheme() {
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(newTheme);
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('urbanGo_theme', theme);
+            updateThemeDisplay();
+        }
+
+        function updateThemeDisplay() {
+            const themeIcon = document.querySelector('.theme-icon');
+            if (currentTheme === 'light') {
+                themeIcon.textContent = '🌙';
+            } else {
+                themeIcon.textContent = '☀️';
+            }
+        }
+
+        // Language Management
+        function toggleLanguage() {
+            const newLang = currentLanguage === 'en' ? 'hi' : 'en';
+            setLanguage(newLang);
+        }
+
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Hide all language elements
+            document.querySelectorAll('[data-lang]').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // Show current language elements
+            document.querySelectorAll(`[data-lang="${lang}"]`).forEach(el => {
+                el.style.display = '';
+            });
+            
+            localStorage.setItem('urbanGo_language', lang);
+            updateLanguageDisplay();
+        }
+
+        function updateLanguageDisplay() {
+            const langIcon = document.querySelector('.lang-icon');
+            if (currentLanguage === 'en') {
+                langIcon.textContent = '🌐';
+            } else {
+                langIcon.textContent = '🇮🇳';
+            }
+        }
+
+        // Peak Hours Management
+        function isPeakHour() {
+            const now = new Date();
+            const hour = now.getHours();
+            
+            return CONFIG.peakHours.times.some(([start, end]) => {
+                return hour >= start && hour <= end;
+            });
+        }
+
+        function checkPeakHours() {
+            const peakIndicator = document.getElementById('peakIndicator');
+            if (isPeakHour()) {
+                peakIndicator.style.display = 'block';
+            } else {
+                peakIndicator.style.display = 'none';
+            }
+        }
+
+        // Map Functions
+        function loadMap() {
+            const overlay = document.getElementById('mapOverlay');
+            overlay.innerHTML = '<div style="text-align: center;"><div class="loading-spinner"></div><p style="margin-top: 1rem;">Loading map...</p></div>';
+            
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = initializeMap;
+            script.onerror = () => {
+                overlay.innerHTML = '<div style="text-align: center; color: var(--danger);"><p>Failed to load map</p></div>';
+            };
+            document.head.appendChild(script);
+        }
+
+        function initializeMap() {
+            try {
+                map = L.map('map').setView([28.6139, 77.2090], 5);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Create custom city markers
+                const cityIcon = L.divIcon({
+                    className: 'city-marker',
+                    html: '<div style="background-color: var(--primary); width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                });
+
+                // Add city markers with exact names
+                indianCities.forEach(city => {
+                    const marker = L.marker([parseFloat(city.lat), parseFloat(city.lng)], { 
+                        icon: cityIcon 
+                    }).addTo(map);
+                    
+                    // Bind popup with exact city name
+                    marker.bindPopup(`
+                        <div style="text-align: center; padding: 0.5rem;">
+                            <strong style="color: var(--primary);">${city.name}</strong>
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                Click to set as pickup/dropoff
+                            </div>
+                            <button onclick="setExactLocation(${parseFloat(city.lat)}, ${parseFloat(city.lng)}, '${city.name}', 'pickup')" 
+                                    style="background: var(--secondary); color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; margin: 0.25rem; cursor: pointer; font-size: 0.8rem;">
+                                🚗 Pickup
+                            </button>
+                            <button onclick="setExactLocation(${parseFloat(city.lat)}, ${parseFloat(city.lng)}, '${city.name}', 'dropoff')" 
+                                    style="background: var(--danger); color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; margin: 0.25rem; cursor: pointer; font-size: 0.8rem;">
+                                🎯 Dropoff
+                            </button>
+                        </div>
+                    `);
+                });
+
+                // Map click handler - automatically selects nearest city
+                map.on('click', (e) => {
+                    const nearestCity = getNearestCity(e.latlng.lat, e.latlng.lng);
+                    if (!startLocation) {
+                        setStartLocation(e.latlng.lat, e.latlng.lng, nearestCity.name);
+                    } else if (!endLocation) {
+                        setEndLocation(e.latlng.lat, e.latlng.lng, nearestCity.name);
+                    }
+                });
+
+                document.getElementById('mapOverlay').style.display = 'none';
+                
+            } catch (error) {
+                document.getElementById('mapOverlay').innerHTML = 
+                    '<div style="text-align: center; color: var(--danger);"><p>Map error: ' + error.message + '</p></div>';
+            }
+        }
+
+        // Find nearest city to clicked location
+        function getNearestCity(lat, lng) {
+            let nearestCity = indianCities[0];
+            let minDistance = Infinity;
+            
+            indianCities.forEach(city => {
+                const distance = calculateDistance(lat, lng, parseFloat(city.lat), parseFloat(city.lng));
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestCity = city;
+                }
+            });
+            
+            return nearestCity;
+        }
+
+        // Set exact location when clicking city markers
+        function setExactLocation(lat, lng, exactName, type) {
+            if (type === 'pickup' && !startLocation) {
+                setStartLocation(lat, lng, exactName);
+            } else if (type === 'dropoff' && !endLocation) {
+                setEndLocation(lat, lng, exactName);
+            }
+            map.closePopup();
+        }
+
+        function setStartLocation(lat, lng, name) {
+            startLocation = { lat, lng };
+            startLocationName = name;
+            
+            if (startMarker) map.removeLayer(startMarker);
+            
+            // Create custom start marker
+            startMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'start-marker',
+                    html: '<div style="background-color: var(--secondary); width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13]
+                })
+            }).addTo(map).bindPopup(`<strong>🚗 Pickup: ${name}</strong>`).openPopup();
+            
+            updateLocationDisplay();
+        }
+
+        function setEndLocation(lat, lng, name) {
+            endLocation = { lat, lng };
+            endLocationName = name;
+            
+            if (endMarker) map.removeLayer(endMarker);
+            
+            // Create custom end marker
+            endMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'end-marker',
+                    html: '<div style="background-color: var(--danger); width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13]
+                })
+            }).addTo(map).bindPopup(`<strong>🎯 Dropoff: ${name}</strong>`).openPopup();
+            
+            updateLocationDisplay();
+            document.getElementById('btnShow').disabled = false;
+        }
+
+        function updateLocationDisplay() {
+            document.getElementById('fromLocation').textContent = startLocationName;
+            document.getElementById('toLocation').textContent = endLocationName;
+        }
+
+        // Vehicle Selection
+        function selectVehicle(type) {
+            selectedVehicle = type;
+            
+            document.querySelectorAll('.vehicle-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            document.querySelector(`[data-type="${type}"]`).classList.add('selected');
+        }
+
+        // Ride Calculation
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function calculateRide() {
+            if (!startLocation || !endLocation) return;
+            
+            const distance = calculateDistance(
+                startLocation.lat, startLocation.lng,
+                endLocation.lat, endLocation.lng
+            );
+            
+            const vehicle = CONFIG.vehicles[selectedVehicle];
+            const isPeak = isPeakHour();
+            const peakMultiplier = isPeak ? CONFIG.peakHours.multiplier : 1;
+            
+            const baseFare = vehicle.base * peakMultiplier;
+            const distanceFare = distance * vehicle.perKm * peakMultiplier;
+            const totalFare = baseFare + distanceFare;
+            const duration = (distance * 2.5) + 5;
+            
+            showRideDetails(distance, totalFare, duration, baseFare, distanceFare, isPeak);
+            addToHistory(distance, totalFare, duration);
+            updateStats(distance, totalFare);
+            
+            // Show route on map
+            if (routeLine) map.removeLayer(routeLine);
+            routeLine = L.polyline([[startLocation.lat, startLocation.lng], [endLocation.lat, endLocation.lng]], {
+                color: '#3b82f6',
+                weight: 4,
+                opacity: 0.7
+            }).addTo(map);
+            
+            const group = L.featureGroup([startMarker, endMarker]);
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+
+        function showRideDetails(distance, totalFare, duration, baseFare, distanceFare, isPeak) {
+            const vehicle = CONFIG.vehicles[selectedVehicle];
+            const vehicleName = vehicle.name[currentLanguage];
+            
+            let html = `
+                <div class="ride-card">
+                    <h3 style="color: var(--primary); margin-bottom: 1rem;">
+                        ${isPeak ? '⏰ ' : ''}${vehicleName} Ride
+                    </h3>
+                    <div class="price-breakdown">
+                        <div class="price-item">
+                            <span data-lang="en">Base Fare</span>
+                            <span data-lang="hi" style="display: none">बेस किराया</span>
+                            <span>₹${baseFare.toFixed(0)}</span>
+                        </div>
+                        <div class="price-item">
+                            <span data-lang="en">Distance (${distance.toFixed(1)} km)</span>
+                            <span data-lang="hi" style="display: none">दूरी (${distance.toFixed(1)} किमी)</span>
+                            <span>₹${distanceFare.toFixed(0)}</span>
+                        </div>
+                        ${isPeak ? `
+                        <div class="price-item">
+                            <span data-lang="en">Peak Hours Surcharge</span>
+                            <span data-lang="hi" style="display: none">पीक आवर्स सरचार्ज</span>
+                            <span>25%</span>
+                        </div>
+                        ` : ''}
+                        <div class="price-item total-price">
+                            <span data-lang="en">Total Fare</span>
+                            <span data-lang="hi" style="display: none">कुल किराया</span>
+                            <span>₹${totalFare.toFixed(0)}</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 1rem;">
+                        <span data-lang="en">Estimated time: ${Math.round(duration)} minutes</span>
+                        <span data-lang="hi" style="display: none">अनुमानित समय: ${Math.round(duration)} मिनट</span>
+                    </p>
+                </div>
+            `;
+            
+            document.getElementById('rideInfo').innerHTML = html;
+            updateLanguageDisplay(); // Refresh language for new content
+        }
+
+        // History & Stats
+        function addToHistory(distance, fare, duration) {
+            const ride = {
+                id: Date.now(),
+                distance: distance,
+                fare: fare,
+                duration: duration,
+                startLocation: startLocationName,
+                endLocation: endLocationName,
+                vehicle: selectedVehicle,
+                timestamp: new Date().toLocaleString(),
+                date: new Date().toISOString().split('T')[0]
+            };
+            
+            rideHistory.unshift(ride);
+            if (rideHistory.length > 10) rideHistory.pop();
+            
+            saveUserData();
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyElem = document.getElementById('rideHistory');
+            
+            if (rideHistory.length === 0) {
+                const noRidesText = currentLanguage === 'en' 
+                    ? 'No rides yet. Book your first ride!'
+                    : 'अभी तक कोई सवारी नहीं। अपनी पहली सवारी बुक करें!';
+                historyElem.innerHTML = `<p style="color: var(--text-muted);">${noRidesText}</p>`;
+                return;
+            }
+            
+            historyElem.innerHTML = rideHistory.map(ride => {
+                const vehicleName = CONFIG.vehicles[ride.vehicle].name[currentLanguage];
+                return `
+                    <div class="ride-card">
+                        <strong>${ride.startLocation} → ${ride.endLocation}</strong>
+                        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.9rem;">
+                            <span>${vehicleName}</span>
+                            <span>₹${ride.fare.toFixed(0)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+                            <span>${ride.distance.toFixed(1)} km • ${Math.round(ride.duration)} min</span>
+                            <span>${new Date(ride.timestamp).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats(distance, fare) {
+            userStats.totalRides++;
+            userStats.totalDistance += distance;
+            userStats.totalSaved += fare * 0.1; // Assume 10% savings vs competitors
+            
+            saveUserData();
+            updateStatsDisplay();
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('totalRides').textContent = userStats.totalRides;
+            document.getElementById('totalDistance').textContent = userStats.totalDistance.toFixed(0);
+            document.getElementById('totalSaved').textContent = `₹${userStats.totalSaved.toFixed(0)}`;
+        }
+
+        // Reset Function
+        function resetRoute() {
+            if (startMarker) map.removeLayer(startMarker);
+            if (endMarker) map.removeLayer(endMarker);
+            if (routeLine) map.removeLayer(routeLine);
+            
+            startMarker = null;
+            endMarker = null;
+            routeLine = null;
+            startLocation = null;
+            endLocation = null;
+            startLocationName = "–";
+            endLocationName = "–";
+            
+            updateLocationDisplay();
+            document.getElementById('btnShow').disabled = true;
+            
+            const defaultMsg = currentLanguage === 'en' 
+                ? 'Select locations to see fare details'
+                : 'किराया विवरण देखने के लिए स्थान चुनें';
+            document.getElementById('rideInfo').innerHTML = `<p>${defaultMsg}</p>`;
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        // Update peak hours every minute
+        setInterval(checkPeakHours, 60000);
+    </script>
+</body>
+</html>
